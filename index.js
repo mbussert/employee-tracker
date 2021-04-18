@@ -1,6 +1,6 @@
 require("dotenv").config();
+require("console.table");
 const mysql = require("mysql");
-const cTable = require("console.table");
 const inquirer = require("inquirer");
 
 const connection = mysql.createConnection({
@@ -14,6 +14,7 @@ const connection = mysql.createConnection({
 connection.connect((err) => {
   if (err) throw err;
   console.log(`connected as id ${connection.threadId}`);
+  console.log('\n');
   start();
 });
 
@@ -23,7 +24,7 @@ const start = () => {
       name: "startOptions",
       type: "list",
       message: "What would you like to do?",
-      choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", "Remove Employee", "Update Employee Role", "Update Employee Manager", "Exit"],
+      choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", "Remove Employee", "Update Employee Role", "Exit"],
     })
     .then((answer) => {
       if (answer.startOptions === "View All Employees") {
@@ -38,8 +39,6 @@ const start = () => {
         removeEmployee();
       } else if (answer.startOptions === "Update Employee Role") {
         updateRole();
-      } else if (answer.startOptions === "Update Employee Manager") {
-        updateManager();
       } else if (answer.startOptions === "Exit") {
         connection.end();
       }
@@ -93,83 +92,83 @@ const viewManager = () => {
 
 async function addEmployee() {
   const addname = await inquirer.prompt(askName());
-    connection.query('SELECT role.id, role.title FROM role ORDER BY role.id;', async (err, res) => {
-        if (err) throw err;
-        const { role } = await inquirer.prompt([
-            {
-                name: 'role',
-                type: 'list',
-                choices: () => res.map(res => res.title),
-                message: 'What is the employee role?: '
-            }
-        ]);
-        let roleId;
-        for (const row of res) {
-            if (row.title === role) {
-                roleId = row.id;
-                continue;
-            }
+  connection.query('SELECT role.id, role.title FROM role ORDER BY role.id;', async (err, res) => {
+    if (err) throw err;
+    const { role } = await inquirer.prompt([
+      {
+        name: 'role',
+        type: 'list',
+        choices: () => res.map(res => res.title),
+        message: 'What is the employee role?: '
+      }
+    ]);
+    let roleId;
+    for (const row of res) {
+      if (row.title === role) {
+        roleId = row.id;
+        continue;
+      }
+    }
+    connection.query('SELECT * FROM employee', async (err, res) => {
+      if (err) throw err;
+      let choices = res.map(res => `${res.first_name} ${res.last_name}`);
+      choices.push('none');
+      let { manager } = await inquirer.prompt([
+        {
+          name: 'manager',
+          type: 'list',
+          choices: choices,
+          message: 'Choose the employee Manager: '
         }
-        connection.query('SELECT * FROM employee', async (err, res) => {
-            if (err) throw err;
-            let choices = res.map(res => `${res.first_name} ${res.last_name}`);
-            choices.push('none');
-            let { manager } = await inquirer.prompt([
-                {
-                    name: 'manager',
-                    type: 'list',
-                    choices: choices,
-                    message: 'Choose the employee Manager: '
-                }
-            ]);
-            let managerId;
-            let managerName;
-            if (manager === 'none') {
-                managerId = null;
-            } else {
-                for (const data of res) {
-                    data.fullName = `${data.first_name} ${data.last_name}`;
-                    if (data.fullName === manager) {
-                        managerId = data.id;
-                        managerName = data.fullName;
-                        console.log(managerId);
-                        console.log(managerName);
-                        continue;
-                    }
-                }
-            }
-            console.log('Employee has been added.');
-            connection.query(
-                'INSERT INTO employee SET ?',
-                {
-                    first_name: addname.first,
-                    last_name: addname.last,
-                    role_id: roleId,
-                    manager_id: parseInt(managerId)
-                },
-                (err, res) => {
-                    if (err) throw err;
-                    start();
+      ]);
+      let managerId;
+      let managerName;
+      if (manager === 'none') {
+        managerId = null;
+      } else {
+        for (const data of res) {
+          data.fullName = `${data.first_name} ${data.last_name}`;
+          if (data.fullName === manager) {
+            managerId = data.id;
+            managerName = data.fullName;
+            console.log(managerId);
+            console.log(managerName);
+            continue;
+          }
+        }
+      }
+      console.log('Employee has been added.');
+      connection.query(
+        'INSERT INTO employee SET ?',
+        {
+          first_name: addname.first,
+          last_name: addname.last,
+          role_id: roleId,
+          manager_id: parseInt(managerId)
+        },
+        (err, res) => {
+          if (err) throw err;
+          start();
 
-                }
-            );
-        });
+        }
+      );
     });
+  });
 };
 
 function askName() {
-    return ([
-        {
-            name: "first",
-            type: "input",
-            message: "Enter the first name: "
-        },
-        {
-            name: "last",
-            type: "input",
-            message: "Enter the last name: "
-        }
-    ]);
+  return ([
+    {
+      name: "first",
+      type: "input",
+      message: "Enter the first name: "
+    },
+    {
+      name: "last",
+      type: "input",
+      message: "Enter the last name: "
+    }
+  ]);
 };
 
 function askId() {
@@ -184,26 +183,27 @@ function askId() {
 
 async function removeEmployee() {
   const answer = await inquirer.prompt([
-        {
-            name: "id",
-            type: "input",
-            message: "Enter the employee ID you want to remove:  "
-        }
-    ]);
+    {
+      name: "id",
+      type: "input",
+      message: "Enter the employee ID you want to remove:  "
+    }
+  ]);
 
-    connection.query('DELETE FROM employee WHERE ?',
-        {
-            id: answer.id
-        },
-        function (err) {
-            if (err) throw err;
-        }
-    )
-    console.log('Employee has been removed!');
-    start();
+  connection.query('DELETE FROM employee WHERE ?',
+    {
+      id: answer.id
+    },
+    function (err) {
+      if (err) throw err;
+    }
+  )
+  console.log('Employee has been removed!');
+  start();
 };
 
 async function updateRole() {
+  
   const employeeId = await inquirer.prompt(askId());
 
   connection.query(
@@ -232,6 +232,7 @@ async function updateRole() {
         async (err, res) => {
           if (err) throw err;
           console.log("Role was updated.");
+          console.log("\n");
           start();
         }
       );
